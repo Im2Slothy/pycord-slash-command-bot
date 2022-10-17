@@ -177,4 +177,59 @@ async def ban(ctx, user: typing.Union[discord.Member, int], *, reason=None):
     else:
         await guild.ban(discord.Object(id = user))
         await ctx.respond(f'User has been hackbanned!\nUser: <@{user}>')
- client.run('TOKEN')
+
+#Unbans Member Command# 
+@bot.command(description="Unbans people!")
+@commands.has_guild_permissions(unban_members = True)
+async def unban(ctx, *, member):
+
+    obj = await commands.UserConverter().convert(ctx, member)
+
+    if obj is None:
+
+        id_ = await commands.IDConverter().convert(str(member))
+
+        if id_ is not None:
+
+            try:
+
+                obj = await client.fetch_user(int(id_.group(1)))
+
+            except discord.NotFound:
+
+                obj = None
+
+        if obj is None:
+
+            await ctx.send('User not found')
+
+            return 
+
+    await ctx.guild.unban(obj)
+
+    await ctx.respond(f'Unbanned {obj}')
+
+
+#Mute Member Command#
+@bot.command(description="Mutes the specified user.") # Mutes user non timed
+@commands.has_guild_permissions(mute_members = True)
+async def mute(ctx, member: discord.Member, time, reason=None):
+    desctime = time
+    guild = ctx.guild
+    mutedRole = discord.utils.get(guild.roles, name="Muted")
+    time_convert = {"s":1, "m":60, "h":3600, "d":86400}
+    tempmute= int(time[:-1]) * time_convert[time[-1]]
+    if not mutedRole:
+        mutedRole = discord.utils.get(guild.roles, name="MUTED", id=123) # change ID to the role ID and name="MUTED" can be changed if you have a custom mute role name 
+        for channel in guild.channels:
+            await channel.set_permissions(mutedRole, speak=False, send_messages=False, read_message_history=True, read_messages=False)
+    embed = discord.Embed(title="muted", description=f"{member.mention} was muted for {desctime} ", colour=discord.Colour.light_gray())
+    embed.add_field(name="reason:", value=reason, inline=True)
+    await ctx.reply(embed=embed)
+    await member.add_roles(mutedRole, reason=reason)
+    await asyncio.sleep(tempmute)
+    await member.send(f"You have been muted from: {guild.name} reason: {reason}")
+    await member.remove_roles(mutedRole)
+
+
+bot.run('TOKEN')

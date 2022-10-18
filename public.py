@@ -3,6 +3,17 @@
 
 import discord
 import random
+import datetime
+import os
+import json
+import math
+from pydoc import describe
+import random
+from tkinter import Entry
+from typing_extensions import Self
+import asyncio
+import discord
+import typing
 bot = discord.Bot()
 
 
@@ -18,8 +29,8 @@ async def on_ready():
 #Bot's ping command#
 @bot.command(description="Sends the bot's latency.") # this decorator makes a slash command
 async def ping(ctx): # a slash command will be created with the name "ping"
-    embed = discord.Embed(title='My ping!', description=f"**Pong! {round(bot.latency * 1000)}ms**", color=discord.Color.black())
-    ctx.respond(embed=embed)
+    embed = discord.Embed(title='My ping!', description=f"**Pong! {round(bot.latency * 1000)}ms**", color=0xFF5733)
+    await ctx.respond(embed=embed)
 
 #Bot's Repeat Command#
 @bot.command(description='Repeat After Me!')
@@ -30,7 +41,8 @@ async def repeat(ctx, *, message):
 #Bot's FAQ Command#
 @bot.command(description='FAQ!')
 async def faq(ctx):
-    embed = discord.Embed(title='FAQ!', description=f"PUT SOMETHING HERE", color=discord.Color.purple())
+    embed = discord.Embed(title='FAQ!', description=f"PUT SOMETHING HERE", color=0xFF5733)
+    await ctx.respond(embed=embed)
  
 #Bot's Basic Command - Change to you're liking this is just an example#
 @bot.command(description='Puggis')
@@ -41,10 +53,10 @@ async def pug(ctx):
  #ctx.respond(embed=embed)
 
 #Guild Member Count Command#
-@bor.command(description='Member Count')
+@bot.command(description='Member Count')
 async def members(ctx):
     a=ctx.guild.member_count
-    b=discord.Embed(title=f"Members in {ctx.guild.name}",description=a,color=discord.Color((0xffff00)))
+    b=discord.Embed(title=f"Members in {ctx.guild.name}",description=a, color=0xFF5733)
     await ctx.respond(embed=b)
     
 #8 ball Command#
@@ -102,7 +114,7 @@ async def timer(ctx, number:int):
         elif number > 300:
             await ctx.respond('number must be under 300')
         else:
-            message = await ctx.respond(number)
+            message = await ctx.send(number) # <--- Sometimes says sending the commmand but it'll still count down. Not sure why
             while number != 0:
                 number -= 1
                 await message.edit(content=number)
@@ -128,7 +140,7 @@ async def poll(ctx, option1: str, option2: str, *, question):
     await message.add_reaction('✅')
  
 #User info Command#
-@bot.command('user info')
+@bot.command(description='user info')
 async def userinfo(ctx , member: discord.Member = None):
 
     date_format = "%a, %d %b %Y %I:%M %p"
@@ -151,49 +163,43 @@ async def userinfo(ctx , member: discord.Member = None):
       
 #------MODERATION------#
 #Clear Chat Command#
-@bot.command(description="Clears Chat!") #Clears Chat
-@commands.has_guild_permissions(clear_messages = True)
+@bot.command(description="Clears Chat!") #Clears Chat <---- Has issues clearing and is being worked on
+@discord.default_permissions(manage_messages = True)
 async def clear(ctx, amount=5):
         await ctx.channel.purge(limit=amount)
         await ctx.respond('Messages have been cleared!')
       
 #Kick Member Command#
 @bot.command(description="Kicks People!") # Kicks people
-@commands.has_guild_permissions(kick_members = True)
+@discord.default_permissions(kick_members = True)
 async def kick(ctx, member : discord.Member, *, reason=None):
         await member.kick(reason=reason)
         await ctx.respond(f'{member.mention} has been kicked!')
       
 #Ban Member Command#
 @bot.command(description="Bans People!") # Bans people
-@commands.has_guild_permissions(ban_members = True)
-async def ban(ctx, user: typing.Union[discord.Member, int], *, reason=None):
-    guild = client.get_guild(665944107025301504)
-    if user in ctx.guild.members:
-        await user.ban(reason=reason)
-        await ctx.respond(f'Banned {user.mention}. That felt good.')
-        #send banned user a message
-        await user.send(f'You have been banned from {guild.name} for {reason}')
-    else:
-        await guild.ban(discord.Object(id = user))
-        await ctx.respond(f'User has been hackbanned!\nUser: <@{user}>')
+@discord.default_permissions(ban_members = True)
+async def ban(ctx, member : discord.Member, *, reason=None):
+    await member.ban(reason=reason)
+    await ctx.respond(f'Banned {member.mention}')
+    await ctx.respond('**Be gone!**')
 
 #Unbans Member Command# 
-@bot.command(description="Unbans people!")
-@commands.has_guild_permissions(unban_members = True)
+@bot.command(description="Unbans people!") #<---- Issues unbanning
+@discord.default_permissions(ban_members = True)
 async def unban(ctx, *, member):
 
-    obj = await commands.UserConverter().convert(ctx, member)
+    obj = await bot.UserConverter().convert(ctx, member)
 
     if obj is None:
 
-        id_ = await commands.IDConverter().convert(str(member))
+        id_ = await bot.IDConverter().convert(str(member))
 
         if id_ is not None:
 
             try:
 
-                obj = await client.fetch_user(int(id_.group(1)))
+                obj = await bot.fetch_user(int(id_.group(1)))
 
             except discord.NotFound:
 
@@ -211,8 +217,8 @@ async def unban(ctx, *, member):
 
 
 #Mute Member Command#
-@bot.command(description="Mutes the specified user.") # Mutes user non timed
-@commands.has_guild_permissions(mute_members = True)
+@bot.command(description="Mutes the specified user.") # Mutes user non timed  <--- This command is broken
+@discord.default_permissions(mute_members = True)
 async def mute(ctx, member: discord.Member, time, reason=None):
     desctime = time
     guild = ctx.guild
@@ -220,7 +226,7 @@ async def mute(ctx, member: discord.Member, time, reason=None):
     time_convert = {"s":1, "m":60, "h":3600, "d":86400}
     tempmute= int(time[:-1]) * time_convert[time[-1]]
     if not mutedRole:
-        mutedRole = discord.utils.get(guild.roles, name="MUTED", id=123) # change ID to the role ID and name="MUTED" can be changed if you have a custom mute role name 
+        mutedRole = discord.utils.get(guild.roles, name="Muted", id=934644469196804136) # change ID to the role ID and name="MUTED" can be changed if you have a custom mute role name 
         for channel in guild.channels:
             await channel.set_permissions(mutedRole, speak=False, send_messages=False, read_message_history=True, read_messages=False)
     embed = discord.Embed(title="muted", description=f"{member.mention} was muted for {desctime} ", colour=discord.Colour.light_gray())

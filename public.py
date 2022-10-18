@@ -4,6 +4,7 @@
 import discord
 import random
 import datetime
+from datetime import timedelta
 import os
 import json
 import math
@@ -13,6 +14,7 @@ from tkinter import Entry
 from typing_extensions import Self
 import asyncio
 import discord
+import aiohttp
 import typing
 bot = discord.Bot()
 
@@ -104,7 +106,21 @@ async def _8ball(ctx,*, question):
 
     embed=discord.Embed(title=f"The 8Ball Says!",description=f'Question: {question}\nAnswer: {random.choice(responses)}',color=0x660066)
     await ctx.respond(embed=embed) 
-    
+
+
+#Random Fact Command#
+@bot.command(description="Get a random fact.")
+async def randomfact(self, context: Context) -> None:
+    async with aiohttp.ClientSession() as session:
+        async with session.get("https://uselessfacts.jsph.pl/random.json?language=en") as request:
+            if request.status == 200:
+                data = await request.json()
+                embed = discord.Embed(description=data["text"],color=0xD75BF4)
+            else:
+                embed = discord.Embed(title="Error!",description="There is something wrong with the API, please try again later",color=0xE02B2B)
+            await context.send(embed=embed)
+
+
  #Timer Command#
 @bot.command(description='Timer')
 async def timer(ctx, number:int):
@@ -161,13 +177,18 @@ async def userinfo(ctx , member: discord.Member = None):
         embed.set_footer(text='ID: ' + str(member.id))
         return await ctx.respond(embed=embed)
       
-#------MODERATION------#
-#Clear Chat Command#
-@bot.command(description="Clears Chat!") #Clears Chat <---- Has issues clearing and is being worked on
+#----------------------------------MODERATION COMMANDS----------------------------------------------------------#
+
+@bot.command(description="Delete a number of messages.",) #<--- Possible Command Fix? Will text later
 @discord.default_permissions(manage_messages = True)
-async def clear(ctx, amount=5):
-        await ctx.channel.purge(limit=amount)
-        await ctx.respond('Messages have been cleared!')
+async def clear(self, context: Context, amount: int) -> None:
+    purged_messages = await context.channel.purge(limit=amount)
+    embed = discord.Embed(
+        title="Chat Cleared!",
+        description=f"**{context.author}** cleared **{len(purged_messages)}** messages!",
+        color=0x9C84EF)
+    await context.send(embed=embed)
+
       
 #Kick Member Command#
 @bot.command(description="Kicks People!") # Kicks people
@@ -176,6 +197,7 @@ async def kick(ctx, member : discord.Member, *, reason=None):
         await member.kick(reason=reason)
         await ctx.respond(f'{member.mention} has been kicked!')
       
+
 #Ban Member Command#
 @bot.command(description="Bans People!") # Bans people
 @discord.default_permissions(ban_members = True)
@@ -184,37 +206,29 @@ async def ban(ctx, member : discord.Member, *, reason=None):
     await ctx.respond(f'Banned {member.mention}')
     await ctx.respond('**Be gone!**')
 
-#Unbans Member Command# 
-@bot.command(description="Unbans people!") #<---- Issues unbanning
+
+#HackBan (Ban User not in your discord)
+@bot.command(description="Bans a user without the user having to be in the server.")
 @discord.default_permissions(ban_members = True)
-async def unban(ctx, *, member):
+async def hackban(self, context: Context, user_id: str, *, reason: str = "Not specified") -> None:
+    try:
+        await self.bot.http.ban(user_id, context.guild.id, reason=reason)
+        user = self.bot.get_user(int(user_id)) or await self.bot.fetch_user(int(user_id))
+        embed = discord.Embed(
+            title="User Banned!",
+            description=f"**{user} (ID: {user_id}) ** was banned by **{context.author}**!",color=0x9C84EF)
+        embed.add_field(name="Reason:",value=reason)
+        await context.send(embed=embed)
+    except Exception as e:
+            embed = discord.Embed(title="Error!",description="An error occurred while trying to ban the user. Make sure ID is an existing ID that belongs to a user.",color=0xE02B2B)
+    await context.send(embed=embed)
 
-    obj = await bot.UserConverter().convert(ctx, member)
 
-    if obj is None:
-
-        id_ = await bot.IDConverter().convert(str(member))
-
-        if id_ is not None:
-
-            try:
-
-                obj = await bot.fetch_user(int(id_.group(1)))
-
-            except discord.NotFound:
-
-                obj = None
-
-        if obj is None:
-
-            await ctx.send('User not found')
-
-            return 
-
-    await ctx.guild.unban(obj)
-
-    await ctx.respond(f'Unbanned {obj}')
-
+@bot.command(description="Unban someone from your server") #<---- Possible fix
+@discord.default_permissions(ban_members = True)
+async def unban(self, member : discord.Member, *, reason=None):
+    await member.unban(reason = reason)
+    await bot.respond(f'{member} has been unbanned.')
 
 #Mute Member Command#
 @bot.command(description="Mutes the specified user.") # Mutes user non timed  <--- This command is broken
@@ -237,5 +251,12 @@ async def mute(ctx, member: discord.Member, time, reason=None):
     await member.send(f"You have been muted from: {guild.name} reason: {reason}")
     await member.remove_roles(mutedRole)
 
+
+@bot.command(description="mutes a specified member.") #<--- Should be mute command fix
+@discord.default_permissions(mute_members = True)
+async def mute(self, member : discord.Member, time : str,*, reason=None):
+    ftime = time2sec(time)
+    await member.timeout(timeout = utcnow() + timedelta(seconds = ftime), reason = reason)
+    await bot.reply(f'{member.mention} has been muted for {time}.')
 
 bot.run('TOKEN')

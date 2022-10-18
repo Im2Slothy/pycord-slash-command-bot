@@ -120,6 +120,21 @@ async def randomfact(self, context: Context) -> None:
                 embed = discord.Embed(title="Error!",description="There is something wrong with the API, please try again later",color=0xE02B2B)
             await context.send(embed=embed)
 
+# Random meme from reddit
+@bot.command(description="Returns random memes from reddit.")
+async def meme(ctx):
+  res = requests.get("https://meme-api.herokuapp.com/gimme/memes").json() # Getting Requests
+  meme_title = res['title']
+  meme_link = res['postLink']
+  meme_img = res['url']
+  meme_author = res['author']
+  meme_likes = res['ups']
+  # Creating Embed
+  x = discord.Embed(title=f"{meme_title}", url=f"{meme_link}")
+  x.set_image(url=meme_img)
+  x.set_footer(text=f"Redditor: {meme_author} • 👍 {meme_likes} | Requested By {ctx.author}")
+  x.set_author(name=meme_author, url=f"https://www.reddit.com/user/{meme_author}", icon_url='https://media.discordapp.net/attachments/880439870374436864/882131944391999488/Reddit.png?width=417&height=417')
+  await ctx.respond(embed=x)
 
  #Timer Command#
 @bot.command(description='Timer')
@@ -179,6 +194,7 @@ async def userinfo(ctx , member: discord.Member = None):
       
 #----------------------------------MODERATION COMMANDS----------------------------------------------------------#
 
+#Clear messages#
 @bot.command(description="Delete a number of messages.",) #<--- Possible Command Fix? Will text later
 @discord.default_permissions(manage_messages = True)
 async def clear(self, context: Context, amount: int) -> None:
@@ -223,35 +239,22 @@ async def hackban(self, context: Context, user_id: str, *, reason: str = "Not sp
             embed = discord.Embed(title="Error!",description="An error occurred while trying to ban the user. Make sure ID is an existing ID that belongs to a user.",color=0xE02B2B)
     await context.send(embed=embed)
 
-
-@bot.command(description="Unban someone from your server") #<---- Possible fix
+#Unban members#
+@bot.command(description="Unban members!")
 @discord.default_permissions(ban_members = True)
-async def unban(self, member : discord.Member, *, reason=None):
-    await member.unban(reason = reason)
-    await bot.respond(f'{member} has been unbanned.')
+async def unban(ctx, *, member):
+    bannedUsers = await ctx.guild.bans()
+    name, discriminator = member.split("#")
 
-#Mute Member Command#
-@bot.command(description="Mutes the specified user.") # Mutes user non timed  <--- This command is broken
-@discord.default_permissions(mute_members = True)
-async def mute(ctx, member: discord.Member, time, reason=None):
-    desctime = time
-    guild = ctx.guild
-    mutedRole = discord.utils.get(guild.roles, name="Muted")
-    time_convert = {"s":1, "m":60, "h":3600, "d":86400}
-    tempmute= int(time[:-1]) * time_convert[time[-1]]
-    if not mutedRole:
-        mutedRole = discord.utils.get(guild.roles, name="Muted", id=934644469196804136) # change ID to the role ID and name="MUTED" can be changed if you have a custom mute role name 
-        for channel in guild.channels:
-            await channel.set_permissions(mutedRole, speak=False, send_messages=False, read_message_history=True, read_messages=False)
-    embed = discord.Embed(title="muted", description=f"{member.mention} was muted for {desctime} ", colour=discord.Colour.light_gray())
-    embed.add_field(name="reason:", value=reason, inline=True)
-    await ctx.reply(embed=embed)
-    await member.add_roles(mutedRole, reason=reason)
-    await asyncio.sleep(tempmute)
-    await member.send(f"You have been muted from: {guild.name} reason: {reason}")
-    await member.remove_roles(mutedRole)
+    for ban in bannedUsers:
+        user = ban.user
 
+        if(user.name, user.discriminator) == (name, discriminator):
+            await ctx.guild.unban(user)
+            await ctx.send(f"{user.mention} was unbanned.")
+            return
 
+#mute command#
 @bot.command(description="mutes a specified member.") #<--- Should be mute command fix
 @discord.default_permissions(mute_members = True)
 async def mute(self, member : discord.Member, time : str,*, reason=None):

@@ -240,19 +240,27 @@ async def hackban(self, context: Context, user_id: str, *, reason: str = "Not sp
     await context.send(embed=embed)
 
 #Unban members#
-@bot.command(description="Unban members!")
-@discord.default_permissions(ban_members = True)
+@bot.command()
 async def unban(ctx, *, member):
-    bannedUsers = await ctx.guild.bans()
-    name, discriminator = member.split("#")
-
-    for ban in bannedUsers:
-        user = ban.user
-
-        if(user.name, user.discriminator) == (name, discriminator):
-            await ctx.guild.unban(user)
-            await ctx.send(f"{user.mention} was unbanned.")
+    bans = await ctx.guild.bans(limit=150).flatten()
+    if not bans:
+        await ctx.respond("**The Ban List is empty!**")
+        return
+    try:
+        member_id = int(member)
+        user = await bot.fetch_user(member_id)
+    except ValueError:
+        try:
+            name, discriminator = member.split("#")
+            user = discord.utils.get(bans, name=name, discriminator=discriminator).user
+        except:
+            await ctx.respond("**Invalid user format. Please use either the user ID or username#discriminator.**")
             return
+    if user in [ban_entry.user for ban_entry in bans]:
+        await ctx.guild.unban(user)
+        await ctx.respond(f"**Unbanned {user.name}**")
+    else:
+        await ctx.respond("**The user isn't banned.**")
 
 #mute command#
 @bot.command(description="mutes a specified member.") #<--- Should be mute command fix

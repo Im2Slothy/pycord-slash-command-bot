@@ -9,11 +9,9 @@ import os
 import json
 import math
 from pydoc import describe
-import random
 from tkinter import Entry
 from typing_extensions import Self
 import asyncio
-import discord
 import aiohttp
 import typing
 bot = discord.Bot()
